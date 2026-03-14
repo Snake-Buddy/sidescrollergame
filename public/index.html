@@ -1,1 +1,81 @@
 
+<!DOCTYPE html>
+<html>
+<head>
+    <title>3D Square Battle</title>
+    <style>
+        body { margin: 0; background: #222; font-family: sans-serif; overflow: hidden; }
+        #ui { position: absolute; top: 20px; left: 20px; z-index: 10; color: white; }
+        button { padding: 10px 20px; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <button onclick="roll()">Roll for Battle</button>
+        <p id="log">Waiting for first turn...</p>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        const socket = io();
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB); // Sky Blue
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // --- 3D ENVIRONMENT ---
+        // Dirt Road
+        const road = new THREE.Mesh(
+            new THREE.BoxGeometry(40, 1, 5),
+            new THREE.MeshStandardMaterial({ color: 0x8B4513 }) // Brown
+        );
+        scene.add(road);
+
+        // Scattered Grass/Stones (Simple loop)
+        for(let i=0; i<30; i++) {
+            const grass = new THREE.Mesh(
+                new THREE.BoxGeometry(0.5, 0.2, 0.5),
+                new THREE.MeshStandardMaterial({ color: 0x228B22 })
+            );
+            grass.position.set(Math.random()*40-20, 0.5, Math.random()*4-2);
+            scene.add(grass);
+        }
+
+        // Players (Squares)
+        const p1Mesh = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), new THREE.MeshStandardMaterial({ color: 'red' }));
+        const p2Mesh = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), new THREE.MeshStandardMaterial({ color: 'blue' }));
+        p1Mesh.position.y = 1;
+        p2Mesh.position.y = 1;
+        scene.add(p1Mesh, p2Mesh);
+
+        // Lights
+        const light = new THREE.DirectionalLight(0xffffff, 1);
+        light.position.set(5, 10, 5);
+        scene.add(light, new THREE.AmbientLight(0x404040));
+
+        camera.position.set(0, 6, 15);
+        camera.lookAt(0, 0, 0);
+
+        // --- SOCKET EVENTS ---
+        socket.on('update', (data) => {
+            document.getElementById('log').innerText = data.log;
+            // Immediate position update (can be Lerped for smoothness)
+            p1Mesh.position.x = data.gameState.p1.x;
+            p2Mesh.position.x = data.gameState.p2.x;
+        });
+
+        function roll() { socket.emit('rollDice'); }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>
